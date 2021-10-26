@@ -6,6 +6,7 @@ import chalk from 'chalk'
 import EventEmitter from 'events'
 import fs from 'fs'
 import path from 'path'
+import tempy from 'tempy'
 import type { DatasourceOverwrite, EngineConfig, EngineEventType } from '../common/Engine'
 import { Engine } from '../common/Engine'
 import { PrismaClientInitializationError } from '../common/errors/PrismaClientInitializationError'
@@ -535,6 +536,7 @@ You may have to run ${chalk.greenBright('prisma generate')} for your changes to 
   private async getLibQueryEnginePath(): Promise<string> {
     // TODO Document ENV VAR
     const libPath = process.env.PRISMA_QUERY_ENGINE_LIBRARY ?? this.config.prismaPath
+    debug('libPath', libPath)
     if (libPath && fs.existsSync(libPath) && libPath.endsWith('.node')) {
       return libPath
     }
@@ -601,7 +603,18 @@ Read more about deploying Prisma Client: https://pris.ly/d/client-generator`
 
       throw new PrismaClientInitializationError(errorText, this.config.clientVersion!)
     }
+
     this.platform = this.platform ?? (await getPlatform())
+
+    // TODO: we probably won't need to do it here at all
+    if (process.env.PRISMA_COPY_LIBRARY_ENGINE_TO_TMP_1) {
+      const tempDir = tempy.directory({ prefix: 'prisma' })
+      const newEnginePath = path.join(tempDir, path.basename(enginePath))
+      debug('Copying %s to %s', enginePath, newEnginePath)
+      await fs.promises.copyFile(enginePath, newEnginePath)
+      return newEnginePath
+    }
+
     return enginePath
   }
 
